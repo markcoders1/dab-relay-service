@@ -1,4 +1,4 @@
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
 const config = require('../config');
 
 function createProxyRouter() {
@@ -8,17 +8,17 @@ function createProxyRouter() {
   const proxy = createProxyMiddleware({
     target: config.dabBaseUrl,
     changeOrigin: true,
+    pathFilter: (pathname) =>
+      pathname.startsWith('/api') ||
+      pathname.startsWith('/graphql') ||
+      pathname.startsWith('/mcp') ||
+      pathname === '/health',
     on: {
       proxyReq(proxyReq, req) {
         if (req.id) {
           proxyReq.setHeader('x-request-id', req.id);
         }
-        if (req.body && Object.keys(req.body).length > 0) {
-          const bodyData = JSON.stringify(req.body);
-          proxyReq.setHeader('Content-Type', 'application/json');
-          proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-          proxyReq.write(bodyData);
-        }
+        fixRequestBody(proxyReq, req);
       },
       error(err, req, res) {
         req.log?.error({ err, upstream: 'dab' }, 'Upstream proxy error');
@@ -29,10 +29,7 @@ function createProxyRouter() {
     },
   });
 
-  router.use('/api', proxy);
-  router.use('/graphql', proxy);
-  router.use('/mcp', proxy);
-  router.use('/health', proxy);
+  router.use(proxy);
 
   return router;
 }
