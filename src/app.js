@@ -5,6 +5,7 @@ const pino = require('pino');
 const pinoHttp = require('pino-http');
 const config = require('./config');
 const { authMiddleware } = require('./middleware/auth');
+const { adminAuthMiddleware } = require('./middleware/adminAuth');
 const validateBody = require('./middleware/validateBody');
 const { createHealthRouter } = require('./routes/health');
 const createKeysRouter = require('./routes/keys');
@@ -55,7 +56,7 @@ function createApp() {
   proxyRouter.use(createProxyRouter());
 
   app.use(createHealthRouter());
-  app.use('/api/keys', express.json({ limit: '1mb' }), authMiddleware, createKeysRouter());
+  app.use('/api/keys', express.json({ limit: '1mb' }), adminAuthMiddleware, createKeysRouter());
   app.use(proxyRouter);
 
   app.use((req, res) => {

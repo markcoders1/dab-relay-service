@@ -13,7 +13,7 @@ purlin.ai → Apache httpd (public) → dab-relay (localhost:8080) → DAB (127.
 ```bash
 cp .env.example .env
 # Edit .env with DAB_BASE_URL
-echo '{"api_key":"dab_Qg1o2Rs5NzMg6HptjQ8iYhxf9mYBh3eP6gWL"}' > api-key.json
+echo '{"api_key":"dab_Qg1o2Rs5NzMg6HptjQ8iYhxf9mYBh3eP6gWL","admin_api_key":"dab_yourAdminSecretHere"}' > api-key.json
 npm install
 npm start
 ```
@@ -26,7 +26,16 @@ npm start
 | `DAB_BASE_URL` | Upstream DAB URL (e.g. `http://127.0.0.1:5000`) |
 | `LOG_LEVEL` | Pino log level (default: `info`) |
 
-The active key lives in `api-key.json` (`{ "api_key": "dab_..." }`, 36 characters after the prefix). The server fails to start if that file is missing or empty. `POST /api/keys/rotate` generates a new `dab_` key, updates the file, and takes effect immediately — no process restart.
+Keys live in `api-key.json`:
+
+```json
+{
+  "api_key": "dab_...",
+  "admin_api_key": "dab_..."
+}
+```
+
+Both fields are required at startup. The user `api_key` is shared with purlin.ai. The `admin_api_key` is used only for `POST /api/keys/rotate` and is never changed by rotation.
 
 ## Apache httpd (VPS deploy)
 
@@ -67,15 +76,23 @@ All DAB paths require API key via **either**:
 | `/mcp` | all | Pass-through |
 | `/health` | GET | Proxies raw DAB health (with API key) |
 
-### Rotate API key
+### Rotate API key (admin only)
 
-`POST /api/keys/rotate` (API key required) — immediately invalidates the current key, persists a new one to `api-key.json`, and returns it once:
+`POST /api/keys/rotate` — send `admin_api_key` in the JSON body (not the user API key). Immediately invalidates the current user key, persists a new one to `api-key.json` (admin key unchanged), and returns it once:
+
+```bash
+curl -s -X POST http://localhost:8080/api/keys/rotate \
+  -H "Content-Type: application/json" \
+  -d '{"admin_api_key":"dab_yourAdminSecretHere"}' | jq .
+```
+
+Response:
 
 ```json
 { "api_key": "dab_<36-character-suffix>" }
 ```
 
-Save the returned key; the old key stops working on the next request (no restart needed).
+Save the returned key; the old user key stops working on the next request (no restart needed).
 
 ## Smoke Tests
 
@@ -163,14 +180,17 @@ curl -i http://localhost:8080/health \
 
 Expected: Raw DAB `/health` response proxied through.
 
-### 8. Rotate API key
+### 8. Rotate API key (admin)
 
 ```bash
+export ADMIN_API_KEY=$(node -p "require('./api-key.json').admin_api_key")
+
 curl -s -X POST http://localhost:8080/api/keys/rotate \
-  -H "Authorization: Bearer $RELAY_API_KEY" | jq .
+  -H "Content-Type: application/json" \
+  -d "{\"admin_api_key\":\"$ADMIN_API_KEY\"}" | jq .
 ```
 
-Expected: `200` with `{"api_key":"dab_..."}`. Store the new key; subsequent requests must use it.
+Expected: `200` with `{"api_key":"dab_..."}`. Store the new user key; `admin_api_key` stays the same.
 
 ## Logging
 
