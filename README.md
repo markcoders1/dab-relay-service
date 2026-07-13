@@ -12,7 +12,8 @@ purlin.ai → Apache httpd (public) → dab-relay (localhost:8080) → DAB (127.
 
 ```bash
 cp .env.example .env
-# Edit .env with your RELAY_API_KEY and DAB_BASE_URL
+# Edit .env with DAB_BASE_URL
+echo '{"api_key":"dab_Qg1o2Rs5NzMg6HptjQ8iYhxf9mYBh3eP6gWL"}' > api-key.json
 npm install
 npm start
 ```
@@ -22,9 +23,10 @@ npm start
 | Variable | Description |
 |----------|-------------|
 | `PORT` | Relay listen port (default: `8080`) |
-| `RELAY_API_KEY` | API key shared with purlin.ai |
 | `DAB_BASE_URL` | Upstream DAB URL (e.g. `http://127.0.0.1:5000`) |
 | `LOG_LEVEL` | Pino log level (default: `info`) |
+
+The active key lives in `api-key.json` (`{ "api_key": "dab_..." }`, 36 characters after the prefix). The server fails to start if that file is missing or empty. `POST /keys/rotate` generates a new `dab_` key, updates the file, and takes effect immediately — no process restart.
 
 ## Apache httpd (VPS deploy)
 
@@ -53,8 +55,8 @@ ProxyPassReverse / http://127.0.0.1:8080/
 ### Authenticated DAB proxy
 
 All DAB paths require API key via **either**:
-- `Authorization: Bearer <RELAY_API_KEY>`
-- `X-API-Key: <RELAY_API_KEY>`
+- `Authorization: Bearer <api_key>`
+- `X-API-Key: <api_key>`
 
 | Path | Methods | Notes |
 |------|---------|-------|
@@ -65,9 +67,21 @@ All DAB paths require API key via **either**:
 | `/mcp` | all | Pass-through |
 | `/health` | GET | Proxies raw DAB health (with API key) |
 
+### Rotate API key
+
+`POST /keys/rotate` (API key required) — immediately invalidates the current key, persists a new one to `api-key.json`, and returns it once:
+
+```json
+{ "api_key": "dab_<36-character-suffix>" }
+```
+
+Save the returned key; the old key stops working on the next request (no restart needed).
+
 ## Smoke Tests
 
-Replace `RELAY_API_KEY` with your key from `.env`.
+```bash
+export RELAY_API_KEY=$(node -p "require('./api-key.json').api_key")
+```
 
 ### 1. Relay health (no auth)
 
@@ -148,6 +162,15 @@ curl -i http://localhost:8080/health \
 ```
 
 Expected: Raw DAB `/health` response proxied through.
+
+### 8. Rotate API key
+
+```bash
+curl -s -X POST http://localhost:8080/keys/rotate \
+  -H "Authorization: Bearer $RELAY_API_KEY" | jq .
+```
+
+Expected: `200` with `{"api_key":"dab_..."}`. Store the new key; subsequent requests must use it.
 
 ## Logging
 

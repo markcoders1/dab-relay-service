@@ -7,6 +7,7 @@ const config = require('./config');
 const { authMiddleware } = require('./middleware/auth');
 const validateBody = require('./middleware/validateBody');
 const { createHealthRouter } = require('./routes/health');
+const createKeysRouter = require('./routes/keys');
 const createProxyRouter = require('./routes/proxy');
 
 const logger = pino({ level: config.logLevel });
@@ -54,6 +55,7 @@ function createApp() {
   proxyRouter.use(createProxyRouter());
 
   app.use(createHealthRouter());
+  app.use('/keys', express.json({ limit: '1mb' }), authMiddleware, createKeysRouter());
   app.use(proxyRouter);
 
   app.use((req, res) => {
