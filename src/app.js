@@ -55,7 +55,7 @@ function createApp() {
   proxyRouter.use(createProxyRouter());
 
   app.use(createHealthRouter());
-  app.use('/keys', express.json({ limit: '1mb' }), authMiddleware, createKeysRouter());
+  app.use('/api/keys', express.json({ limit: '1mb' }), authMiddleware, createKeysRouter());
   app.use(proxyRouter);
 
   app.use((req, res) => {

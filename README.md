@@ -26,7 +26,7 @@ npm start
 | `DAB_BASE_URL` | Upstream DAB URL (e.g. `http://127.0.0.1:5000`) |
 | `LOG_LEVEL` | Pino log level (default: `info`) |
 
-The active key lives in `api-key.json` (`{ "api_key": "dab_..." }`, 36 characters after the prefix). The server fails to start if that file is missing or empty. `POST /keys/rotate` generates a new `dab_` key, updates the file, and takes effect immediately — no process restart.
+The active key lives in `api-key.json` (`{ "api_key": "dab_..." }`, 36 characters after the prefix). The server fails to start if that file is missing or empty. `POST /api/keys/rotate` generates a new `dab_` key, updates the file, and takes effect immediately — no process restart.
 
 ## Apache httpd (VPS deploy)
 
@@ -69,7 +69,7 @@ All DAB paths require API key via **either**:
 
 ### Rotate API key
 
-`POST /keys/rotate` (API key required) — immediately invalidates the current key, persists a new one to `api-key.json`, and returns it once:
+`POST /api/keys/rotate` (API key required) — immediately invalidates the current key, persists a new one to `api-key.json`, and returns it once:
 
 ```json
 { "api_key": "dab_<36-character-suffix>" }
@@ -166,7 +166,7 @@ Expected: Raw DAB `/health` response proxied through.
 ### 8. Rotate API key
 
 ```bash
-curl -s -X POST http://localhost:8080/keys/rotate \
+curl -s -X POST http://localhost:8080/api/keys/rotate \
   -H "Authorization: Bearer $RELAY_API_KEY" | jq .
 ```
 
